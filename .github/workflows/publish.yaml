@@ -5,6 +5,9 @@ name: Create and publish a Docker image
 on:
   push:
     branches: ['release']
+    # matches tags like v1, v1.2, and v1.2.3-alpha.1 and v1.2.3.alpha.1-build.123+sha.456
+    tags: 
+      - 'v[0-9]+(\.[0-9]+)*([-\.]\S+)?' 
 
 #Configures this workflow to run every time a change is pushed to the branch called release.
 
