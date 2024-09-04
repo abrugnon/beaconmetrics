@@ -1,0 +1,23 @@
+name: ci
+
+on:
+  push:
+
+env:
+    REGISTRY: ghcr.io
+    IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+        - 
+            name: Checkout repository
+            uses: actions/checkout@v4
+        - 
+            name: Build and push
+            uses: docker/build-push-action@v6
+            with:
+                context: .
+                push: false
+                tags: ${{ env.IMAGE_NAME }}:latest
