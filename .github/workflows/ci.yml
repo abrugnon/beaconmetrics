@@ -2,6 +2,9 @@ name: ci
 
 on:
   push:
+    # disable on main branch to allow build job to run
+    branches-ignore:
+        - 'main'
 
 env:
     REGISTRY: ghcr.io
@@ -15,7 +18,7 @@ jobs:
             name: Checkout repository
             uses: actions/checkout@v4
         - 
-            name: Build and push
+            name: Build without pushing
             uses: docker/build-push-action@v6
             with:
                 context: .
