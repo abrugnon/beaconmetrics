@@ -1,6 +1,10 @@
 # beaconmetrics
 
-expose beaconcha.in validator API results as prometheus metrics
+Expose beaconcha.in validator API results as prometheus metrics
+
+## Grafana Template
+
+*TODO*
 
 
 ## Beaconcha.in API documentation
