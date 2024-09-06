@@ -2,8 +2,9 @@ name: ci
 
 on:
   push:
+    # disable on main branch to allow build job to run
     branches: 
-        - 'main'
+        - '!main'
 
 env:
     REGISTRY: ghcr.io
