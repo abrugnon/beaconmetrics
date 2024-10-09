@@ -4,8 +4,9 @@ Expose beaconcha.in validator API results as prometheus metrics
 
 ## Grafana Template
 
-*TODO*
+You can find a sample grafana dashboard template in the [grafana directory](./grafana)
 
+![Grafana Dashboard](/grafana/dashboard.png "BeaconMetrics Dashboard").
 
 ## Beaconcha.in API documentation
 
@@ -19,6 +20,8 @@ docker run --rm  -e CHAIN=holesky  -e VALIDATOR=123456 -p 8000:8000 beaconmetric
 curl http://localhost:8000 
 ```
 ## Public docker image 
+
+You can find ready to use docker images on [GCHR] (https://github.com/abrugnon/beaconmetrics/pkgs/container/beaconmetrics)
 
 ```docker run --rm  e LOG=DEBUG -e CHAIN=holesky  -e VALIDATOR=123456 -p 8000:8000 ghcr.io/abrugnon/beaconmetrics:release```
 

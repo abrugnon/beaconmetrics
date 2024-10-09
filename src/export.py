@@ -1,8 +1,13 @@
 from prometheus_client import start_http_server,  Summary, Gauge,  Counter, Info
 import time
 import os
+#from requests.exceptions import ConnectionError
 import requests
+from requests.adapters import HTTPAdapter
 import logging
+import urllib3
+from urllib3.util.retry import Retry
+# from urllib3 import PoolManager
 
 # Create metrics.
 REQUEST_TIME = Summary('request_processing_seconds', 'Time spent processing request')
@@ -67,27 +72,42 @@ def api_fetcher_json (url):
         'Minute': 40, 
         'Second': 2
     }
+
     try:
+ 
         response = requests.get( url )
+        response.raise_for_status()
+        logger.info(f"Response: {response.content}")
+        # response = requests.get( url )
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"Connection error: {e}")
+        time.sleep (60)
+        return { 'status' : 'KO'}
+    except requests.exceptions.HTTPError as e:
+        logger.debug(response.headers)
+        logger.error(f"HTTP error: {e}")
+        # Specific code for rate limiting
+        # Retry-After': '1217202
+        if response.status_code == 429:
+            logger.error("API endpoint Rate limited exceeded\n")
+            for inter in rate_limit.keys ():
+                if (response.headers['X-Ratelimit-Remaining-' + inter]) == '0':
+                    logger.error(f"Limit reached ({inter}):  holding requests for {rate_limit[inter]} seconds" )
+                    logger.error (f"Server asks for {response.headers['Retry-After']}")
+                    time.sleep(rate_limit[inter])
+                    return { 'status' : 'KO'}
+        else:
+            time.sleep (60)
+            return { 'status' : 'KO'}
     except requests.exceptions.RequestException as e:
         # catastrophic error. bail.
-        print ("Connection error")
-        raise SystemExit(e)
+        logger.error(f"General error: {e}")
+        time.sleep (60)
+        #raise SystemExit()
     
-    logger.debug(response.headers)
 
-    # Content -> Too Many Requests
-    # Limit headers X-Ratelimit-Remaining-Month / Day / Hour / Minute / Second
-    for inter in rate_limit.keys ():
-        if (response.headers['X-Ratelimit-Remaining-' + inter]) == '0':
-            logger.error("Limit reached (" + inter + "):  holding requests for " +  str( rate_limit[inter]) + " seconds" )
-            break 
 
     logger.debug(response.content.decode('utf-8'))
-    if response.content == b"Too Many Requests\n" :
-
-        logger.error("API endpoint Rate limited exceeded\n")
-        return { 'status' : 'KO'}
 
     return response.json()
 
@@ -168,7 +188,7 @@ def validator_efficiency (validator):
         ATTESTATION_EFFECTIVENESS.labels(validator).set(eff)
         # ATTESTATION_EFFECTIVENESS.set(eff)
     else:
-        ATTESTATION_EFFECTIVENESS.set(None)
+        ATTESTATION_EFFECTIVENESS.labels(validator).set(0)
 
 # 
 #  Performance and Rank
