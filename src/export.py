@@ -18,12 +18,15 @@ REWARD = Gauge("validator_reward" , 'Rewards for actions',['validator','type'])
 PENALTY = Gauge("validator_penalty" , 'Penalty for actions',['validator','type'])
 
 INFO = Info('validator_status' ,'Information about on-chain validator')
-
+RATELIMIT = Gauge("rate_limit_remain" , 'Remaining Hits per periode',['type'])
 
 # initial settings
 current_epoch = 0
 current_finalized_epoch = 0
 current_slot = 0
+
+# wait time between API request
+sleep_delay = 25
 
 logger = logging.getLogger()
 #logger.setLevel(logging.DEBUG)
@@ -37,14 +40,15 @@ INFO.info ({'status': 'unknown' })
 def process_request(validator):
     """A dummy function that takes some time."""
     blockchain_state (validator)
-    time.sleep(15)
+    time.sleep(sleep_delay)
     validator_performance (validator)
-    time.sleep(15)
+    time.sleep(sleep_delay)
     validator_efficiency (validator)
-    time.sleep(11)
+    time.sleep(sleep_delay)
     validator_info (validator)
-    time.sleep(15)
+    time.sleep(sleep_delay)
     validator_reward(validator)
+    time.sleep(sleep_delay)
     #blockchain_state (validator)
 
 def help():
@@ -77,7 +81,13 @@ def api_fetcher_json (url):
  
         response = requests.get( url )
         response.raise_for_status()
+        logger.debug(response.headers)
         logger.info(f"Response: {response.content}")
+        # Rate limit Gauge
+        for inter in rate_limit.keys ():
+            RATELIMIT.labels(inter).set (response.headers['X-Ratelimit-Remaining-' + inter])
+            # if (response.headers['X-Ratelimit-Remaining-' + inter])
+            # REWARD.labels(validator,'head').set(int(API_Data['data'][0]['income'].get('attestation_head_reward',0)))
         # response = requests.get( url )
     except requests.exceptions.ConnectionError as e:
         logger.error(f"Connection error: {e}")
@@ -105,10 +115,7 @@ def api_fetcher_json (url):
         time.sleep (60)
         #raise SystemExit()
     
-
-
     logger.debug(response.content.decode('utf-8'))
-
     return response.json()
 
 #
@@ -127,18 +134,11 @@ def blockchain_state (validator):
         current_finalized_epoch = API_Data['currentFinalizedEpoch']
         current_slot = API_Data['currentSlot']
 
-
 #
 # Validators rewards
 #
 def validator_reward (validator):
-    # response = requests.get(endpoint + 'validator/' + validator + '/incomedetailhistory?limit=1&latest_epoch=' + str(current_finalized_epoch))
-    # API_Data = response.json()
     API_Data =  api_fetcher_json(endpoint + 'validator/' + validator + '/incomedetailhistory?limit=1&latest_epoch=' + str(current_finalized_epoch))
-    # for key in API_Data:{ 
-    #     print(key,":", API_Data[key]) 
-    # }
-    #print (API_Data['data'][0])
     if  'status' in API_Data and API_Data['status'] == 'OK' and API_Data['data']:
         # Rewards 
         REWARD.labels(validator,'head').set(int(API_Data['data'][0]['income'].get('attestation_head_reward',0)))
@@ -152,17 +152,13 @@ def validator_reward (validator):
         PENALTY.labels(validator,'finality_delay').set(int(API_Data['data'][0]['income'].get('finality_delay_penalty',0)))
         PENALTY.labels(validator,'sync').set(int(API_Data['data'][0]['income'].get('sync_committee_penalty',0)))
         PENALTY.labels(validator,'slashing').set(int(API_Data['data'][0]['income'].get('slashing_penalty',0)))
+#
 # Gather info about blockchain 
 # 
-
 def validator_info (validator):
     """  Collects various data on the blockchain itself  """
 
     API_Data =  api_fetcher_json(endpoint + 'validator/' + validator )
-    # Print json data using loop 
-    # for key in API_Data:{ 
-    #     print(key,":", API_Data[key]) 
-    # }
     if API_Data['status'] == 'OK':
     
         INFO.info ({'status': API_Data['data']['status'] ,
@@ -178,15 +174,9 @@ def validator_info (validator):
 #
 def validator_efficiency (validator):
     API_Data =  api_fetcher_json(endpoint + 'validator/' + validator +'/attestationefficiency')
-    # Print json data using loop 
-    # for key in API_Data:{ 
-    #     print(key,":", API_Data[key]) 
-    # }
     if 'status' in API_Data and API_Data['status'] == 'OK':
         eff = round(200 -API_Data['data'][0]['attestation_efficiency']*100)
-        #print ('eff:' + str(eff))
         ATTESTATION_EFFECTIVENESS.labels(validator).set(eff)
-        # ATTESTATION_EFFECTIVENESS.set(eff)
     else:
         ATTESTATION_EFFECTIVENESS.labels(validator).set(0)
 
@@ -195,14 +185,8 @@ def validator_efficiency (validator):
 # 
 def validator_performance (validator):
     API_Data =  api_fetcher_json(endpoint + 'validator/' + validator +'/performance')
-    # Print json data using loop 
-    # for key in API_Data:{ 
-    #     print(key,":", API_Data[key]) 
-    # }
     if 'status' in API_Data and API_Data['status'] == 'OK':
-
         RANK.labels(validator,'7d').set(int(API_Data['data'][0]['rank7d']))
-        #print ('eff:' + str(eff))
         PERFORMANCE.labels(validator,'1d').set(int(API_Data['data'][0]['performance1d']))
         PERFORMANCE.labels(validator,'7d').set(int(API_Data['data'][0]['performance7d']))
         PERFORMANCE.labels(validator,'31d').set(int(API_Data['data'][0]['performance31d']))
@@ -228,6 +212,8 @@ if __name__ == '__main__':
     logger.info ("Using endpoint %s \n" % (endpoint))
     # Start up the server to expose the metrics.
     start_http_server(8000)
-    
+
+    # Anti restart-hammering endpoint
+    time.sleep (20)
     while True:
         process_request(validator)
