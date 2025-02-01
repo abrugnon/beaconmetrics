@@ -5,7 +5,7 @@ COPY ./src/ /app/
 COPY requirements.txt /app/
 
 RUN pip install -r requirements.txt
-
+STOPSIGNAL SIGINT
 EXPOSE 8000
 
-CMD python -u export.py
+ENTRYPOINT [ "python" ,"-u", "export.py"]
