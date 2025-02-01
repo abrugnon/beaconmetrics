@@ -26,7 +26,7 @@ current_finalized_epoch = 0
 current_slot = 0
 
 # wait time between API request
-sleep_delay = 25
+sleep_delay = 120
 
 logger = logging.getLogger()
 #logger.setLevel(logging.DEBUG)
@@ -53,9 +53,10 @@ def process_request(validator):
 
 def help():
     print ("ETH validator prometheus exporter from beaconcha.in API\n")
-    print ("env CHAIN: mainnet(default) or holesky\n")
-    print ("    VALIDATOR: pubkey or number of the validator\n")
-    print ("    LOG: loglevel (DEBUG,INFO,WARNING,CRITICAL) default: INFO\n")
+    print ("env CHAIN: mainnet(default) or holesky")
+    print ("    VALIDATOR: pubkey or number of the validator")
+    print ("    LOG: loglevel (DEBUG,INFO,WARNING,CRITICAL) default: INFO")
+    print ("    INTERVAL: Interval between API calls (seconds) default: 60")
 
 
 # Function to access beacon API and ensure that we do not hammer the endpoint
@@ -86,9 +87,7 @@ def api_fetcher_json (url):
         # Rate limit Gauge
         for inter in rate_limit.keys ():
             RATELIMIT.labels(inter).set (response.headers['X-Ratelimit-Remaining-' + inter])
-            # if (response.headers['X-Ratelimit-Remaining-' + inter])
-            # REWARD.labels(validator,'head').set(int(API_Data['data'][0]['income'].get('attestation_head_reward',0)))
-        # response = requests.get( url )
+
     except requests.exceptions.ConnectionError as e:
         logger.error(f"Connection error: {e}")
         time.sleep (60)
@@ -197,6 +196,7 @@ if __name__ == '__main__':
     # $$$ tolowercase
     chain = os.getenv('CHAIN', "mainnet")
     validator = os.getenv('VALIDATOR')
+    sleep_delay = int(os.getenv('INTERVAL',sleep_delay))
     loglevel = os.getenv('LOG', "INFO")
     numeric_level = getattr(logging, loglevel.upper(), None)
     if not isinstance(numeric_level, int):
